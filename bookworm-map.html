@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>書蟲派對 — 閱讀世界地圖</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: #0f0e17;
+    font-family: 'Georgia', serif;
+    color: #e8e4d9;
+  }
+  header {
+    border-bottom: 1px solid #2a2840;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(15,14,23,0.97);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .header-title { font-size: 1.15rem; font-weight: bold; letter-spacing: 0.05em; color: #e8d5a0; }
+  .header-sub { font-size: 0.68rem; color: #7070a0; letter-spacing: 0.12em; margin-top: 2px; }
+  .tab-btn {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid #3a3860;
+    background: transparent; color: #7070a0; cursor: pointer;
+    font-size: 0.8rem; letter-spacing: 0.05em; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { background: #2a2840; color: #e8d5a0; border-color: #e8d5a080; }
+  main { padding: 24px 28px; max-width: 1100px; margin: 0 auto; }
+
+  /* Name screen */
+  #name-screen {
+    background: #1a1830; border: 1px solid #2a2840; border-radius: 14px;
+    padding: 36px; text-align: center; max-width: 420px; margin: 60px auto;
+  }
+  #name-screen .big-emoji { font-size: 2.2rem; margin-bottom: 14px; }
+  #name-screen h2 { font-size: 1.1rem; color: #e8d5a0; margin-bottom: 8px; }
+  #name-screen p { font-size: 0.82rem; color: #7070a0; line-height: 1.8; margin-bottom: 24px; }
+  #name-input {
+    width: 100%; padding: 11px 14px; border-radius: 8px;
+    border: 1px solid #3a3860; background: #0f0e17;
+    color: #e8e4d9; font-size: 1rem; outline: none;
+    margin-bottom: 12px; font-family: inherit;
+  }
+  #name-input:focus { border-color: #e8d5a060; }
+  #name-btn {
+    width: 100%; padding: 12px; border-radius: 8px;
+    background: #e8d5a0; color: #0f0e17; border: none;
+    cursor: pointer; font-size: 1rem; font-weight: bold;
+    font-family: inherit; letter-spacing: 0.05em;
+    transition: opacity 0.2s;
+  }
+  #name-btn:hover { opacity: 0.85; }
+
+  /* User bar */
+  #user-bar {
+    background: #1a1830; border: 1px solid #2a2840; border-radius: 10px;
+    padding: 12px 18px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .user-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+  .user-name { color: #e8d5a0; font-weight: bold; font-size: 0.95rem; }
+  .user-count { color: #7070a0; font-size: 0.8rem; }
+  #save-btn {
+    margin-left: auto; padding: 7px 20px; border-radius: 6px; border: none;
+    background: #e8d5a0; color: #0f0e17; cursor: pointer;
+    font-size: 0.82rem; font-weight: bold; font-family: inherit;
+    transition: background 0.3s;
+  }
+  #save-btn.saved { background: #6bb5a0; }
+  #clear-btn {
+    padding: 7px 14px; border-radius: 6px; border: 1px solid #3a3860;
+    background: transparent; color: #7070a0; cursor: pointer;
+    font-size: 0.8rem; font-family: inherit;
+  }
+
+  /* Continent filter */
+  #continent-filter { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  .cont-btn {
+    padding: 5px 14px; border-radius: 20px; border: 1px solid #2a2840;
+    background: transparent; color: #7070a0; cursor: pointer;
+    font-size: 0.78rem; font-family: inherit; transition: all 0.2s;
+  }
+  .cont-btn.active { border-color: #e8d5a0; background: #e8d5a015; color: #e8d5a0; }
+
+  /* Map */
+  #map-wrap {
+    position: relative; background: #131226;
+    border: 1px solid #2a2840; border-radius: 16px;
+    overflow: visible; height: 360px; margin-bottom: 22px;
+  }
+  #map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map-marker {
+    position: absolute; transform: translate(-50%, -50%);
+    cursor: pointer; z-index: 10;
+  }
+  .marker-dot {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; border: 2px solid transparent;
+    transition: all 0.2s; position: relative;
+  }
+  .map-marker:hover .marker-dot { transform: scale(1.35); z-index: 20; }
+  .marker-tooltip {
+    display: none; position: absolute; bottom: 130%; left: 50%;
+    transform: translateX(-50%);
+    background: #1a1830; border: 1px solid #3a3860; border-radius: 8px;
+    padding: 8px 12px; font-size: 0.76rem; white-space: nowrap;
+    z-index: 200; pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6); min-width: 110px;
+  }
+  .map-marker:hover .marker-tooltip { display: block; }
+  .tooltip-title { font-weight: bold; color: #e8d5a0; margin-bottom: 5px; }
+  .tooltip-user { display: flex; align-items: center; gap: 5px; color: #c0bcd0; margin-bottom: 2px; }
+  .tooltip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .tooltip-empty { color: #5050a0; }
+  .tooltip-hint { color: #5050a0; font-size: 0.68rem; margin-top: 4px; }
+
+  /* Region grid */
+  #region-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px; margin-bottom: 20px;
+  }
+  .region-card {
+    background: #1a1830; border: 1px solid #2a2840; border-radius: 10px;
+    padding: 10px 12px; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .region-card.mine { background: #e8d5a015; }
+  .region-emoji { font-size: 1rem; flex-shrink: 0; }
+  .region-name { font-size: 0.82rem; color: #c0bcd0; }
+  .region-card.mine .region-name { color: #e8d5a0; font-weight: bold; }
+  .region-users { display: flex; gap: 3px; margin-top: 3px; flex-wrap: wrap; align-items: center; }
+  .region-user-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  /* Legend */
+  #legend {
+    background: #1a1830; border: 1px solid #2a2840; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 20px;
+  }
+  .legend-title { font-size: 0.72rem; color: #7070a0; letter-spacing: 0.12em; margin-bottom: 10px; }
+  #legend-list { display: flex; flex-wrap: wrap; gap: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+
+  /* List view */
+  #list-view { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 14px; }
+  .user-card {
+    background: #1a1830; border: 1px solid #2a2840; border-radius: 12px;
+    padding: 16px 18px; cursor: pointer; transition: all 0.2s;
+  }
+  .user-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .user-card-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .user-card-name { font-weight: bold; color: #e8e4d9; }
+  .user-card-you { font-size: 0.7rem; margin-left: auto; }
+  .user-card-count { font-size: 0.8rem; color: #7070a0; }
+  .user-card-regions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .user-region-tag {
+    background: #0f0e17; border: 1px solid #2a2840; border-radius: 20px;
+    padding: 2px 10px; font-size: 0.76rem; color: #c0bcd0;
+  }
+
+  /* Loading */
+  #loading {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    color: #7070a0; font-size: 1.1rem; letter-spacing: 0.15em;
+  }
+
+  .cont-label {
+    position: absolute; color: #2a2860; font-size: 0.6rem;
+    letter-spacing: 0.18em; font-weight: bold; pointer-events: none;
+    transform: translate(-50%,-50%);
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">載入中...</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div>
+      <div class="header-title">📚 書蟲派對 — 閱讀世界地圖</div>
+      <div class="header-sub">BOOKWORM PARTY · READING TERRITORY MAP</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="tab-btn active" id="tab-map" onclick="switchTab('map')">🗺 地圖</button>
+      <button class="tab-btn" id="tab-list" onclick="switchTab('list')">📋 書友列表</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Name screen -->
+    <div id="name-screen">
+      <div class="big-emoji">🌍</div>
+      <h2>歡迎來到書蟲世界地圖</h2>
+      <p>在地圖上標記你熟悉的地區 —<br>那些你讀過許多書、或有深刻認識的地方</p>
+      <input id="name-input" type="text" placeholder="輸入你的名字或暱稱" maxlength="20">
+      <button id="name-btn" onclick="setName()">進入地圖 →</button>
+    </div>
+
+    <!-- Map view -->
+    <div id="map-view" style="display:none">
+      <div id="user-bar">
+        <div class="user-dot" id="my-dot"></div>
+        <span class="user-name" id="my-name-label"></span>
+        <span class="user-count" id="my-count">已選 0 個地區</span>
+        <button id="clear-btn" onclick="clearMyMarkers()">清除</button>
+        <button id="save-btn" onclick="saveMarkers()">儲存標記</button>
+      </div>
+
+      <div id="continent-filter"></div>
+
+      <div id="map-wrap">
+        <svg id="map-svg">
+          <!-- Grid -->
+          <g opacity="0.07">
+            <line x1="10%" y1="0" x2="10%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="20%" y1="0" x2="20%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="30%" y1="0" x2="30%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="40%" y1="0" x2="40%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="60%" y1="0" x2="60%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="70%" y1="0" x2="70%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="80%" y1="0" x2="80%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="90%" y1="0" x2="90%" y2="100%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="12.5%" x2="100%" y2="12.5%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="25%" x2="100%" y2="25%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="37.5%" x2="100%" y2="37.5%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="62.5%" x2="100%" y2="62.5%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="75%" x2="100%" y2="75%" stroke="#7070a0" stroke-width="0.5"/>
+            <line x1="0" y1="87.5%" x2="100%" y2="87.5%" stroke="#7070a0" stroke-width="0.5"/>
+          </g>
+          <!-- Equator -->
+          <line x1="0" y1="46%" x2="100%" y2="46%" stroke="#e8d5a0" stroke-width="0.7" stroke-dasharray="5,5" opacity="0.25"/>
+        </svg>
+        <div class="cont-label" style="left:68%;top:32%">亞洲</div>
+        <div class="cont-label" style="left:44%;top:20%">歐洲</div>
+        <div class="cont-label" style="left:20%;top:22%">美洲</div>
+        <div class="cont-label" style="left:46%;top:50%">非洲</div>
+        <div class="cont-label" style="left:80%;top:62%">大洋洲</div>
+        <div id="map-markers"></div>
+      </div>
+
+      <div id="region-grid"></div>
+
+      <div id="legend">
+        <div class="legend-title">書友圖例</div>
+        <div id="legend-list"></div>
+      </div>
+    </div>
+
+    <!-- List view -->
+    <div id="list-view-wrap" style="display:none">
+      <div style="margin-bottom:16px;color:#7070a0;font-size:0.8rem;letter-spacing:0.1em" id="list-count"></div>
+      <div id="list-view"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Firebase CDN -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDMqEeKUUXNlkHEnfjysg0KsqNY2g91V7k",
+  authDomain: "bookworm-map-b60c2.firebaseapp.com",
+  databaseURL: "https://bookworm-map-b60c2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "bookworm-map-b60c2",
+  storageBucket: "bookworm-map-b60c2.firebasestorage.app",
+  messagingSenderId: "629109618577",
+  appId: "1:629109618577:web:c1c2d47712d32d66d70c30"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const COLORS = [
+  "#e8705a","#f0a500","#6bb5a0","#7b9fd4","#c47bb5",
+  "#82c45e","#e87d96","#a08060","#5bb8d4","#d4855b"
+];
+
+const REGIONS = [
+  {id:"tw",name:"台灣",emoji:"🇹🇼",x:76.5,y:38.5,continent:"亞洲"},
+  {id:"jp",name:"日本",emoji:"🇯🇵",x:79,y:32,continent:"亞洲"},
+  {id:"kr",name:"韓國",emoji:"🇰🇷",x:76,y:32,continent:"亞洲"},
+  {id:"cn",name:"中國",emoji:"🇨🇳",x:72,y:34,continent:"亞洲"},
+  {id:"in",name:"印度",emoji:"🇮🇳",x:63,y:41,continent:"亞洲"},
+  {id:"th",name:"泰國",emoji:"🇹🇭",x:70,y:43,continent:"亞洲"},
+  {id:"vn",name:"越南",emoji:"🇻🇳",x:71.5,y:42,continent:"亞洲"},
+  {id:"id",name:"印尼",emoji:"🇮🇩",x:73,y:50,continent:"亞洲"},
+  {id:"sg",name:"新加坡",emoji:"🇸🇬",x:71,y:48,continent:"亞洲"},
+  {id:"ir",name:"伊朗",emoji:"🇮🇷",x:57,y:34,continent:"亞洲"},
+  {id:"tr",name:"土耳其",emoji:"🇹🇷",x:51,y:30,continent:"亞洲"},
+  {id:"il",name:"以色列",emoji:"🇮🇱",x:51.5,y:34,continent:"亞洲"},
+  {id:"uk",name:"英國",emoji:"🇬🇧",x:42,y:22,continent:"歐洲"},
+  {id:"fr",name:"法國",emoji:"🇫🇷",x:43.5,y:25,continent:"歐洲"},
+  {id:"de",name:"德國",emoji:"🇩🇪",x:45.5,y:22,continent:"歐洲"},
+  {id:"ru",name:"俄羅斯",emoji:"🇷🇺",x:58,y:18,continent:"歐洲"},
+  {id:"it",name:"義大利",emoji:"🇮🇹",x:46,y:27,continent:"歐洲"},
+  {id:"es",name:"西班牙",emoji:"🇪🇸",x:41,y:28,continent:"歐洲"},
+  {id:"gr",name:"希臘",emoji:"🇬🇷",x:48.5,y:29,continent:"歐洲"},
+  {id:"pl",name:"波蘭",emoji:"🇵🇱",x:47.5,y:22,continent:"歐洲"},
+  {id:"cz",name:"捷克",emoji:"🇨🇿",x:46.5,y:23,continent:"歐洲"},
+  {id:"nl",name:"荷蘭",emoji:"🇳🇱",x:44.5,y:21,continent:"歐洲"},
+  {id:"se",name:"瑞典",emoji:"🇸🇪",x:46,y:16,continent:"歐洲"},
+  {id:"no",name:"挪威",emoji:"🇳🇴",x:45,y:14,continent:"歐洲"},
+  {id:"us",name:"美國",emoji:"🇺🇸",x:20,y:30,continent:"美洲"},
+  {id:"ca",name:"加拿大",emoji:"🇨🇦",x:18,y:20,continent:"美洲"},
+  {id:"mx",name:"墨西哥",emoji:"🇲🇽",x:18,y:38,continent:"美洲"},
+  {id:"br",name:"巴西",emoji:"🇧🇷",x:28,y:55,continent:"美洲"},
+  {id:"ar",name:"阿根廷",emoji:"🇦🇷",x:26,y:68,continent:"美洲"},
+  {id:"co",name:"哥倫比亞",emoji:"🇨🇴",x:23,y:48,continent:"美洲"},
+  {id:"pe",name:"秘魯",emoji:"🇵🇪",x:22,y:54,continent:"美洲"},
+  {id:"cl",name:"智利",emoji:"🇨🇱",x:23,y:65,continent:"美洲"},
+  {id:"eg",name:"埃及",emoji:"🇪🇬",x:50,y:35,continent:"非洲"},
+  {id:"ng",name:"奈及利亞",emoji:"🇳🇬",x:45,y:45,continent:"非洲"},
+  {id:"za",name:"南非",emoji:"🇿🇦",x:48,y:65,continent:"非洲"},
+  {id:"ke",name:"肯亞",emoji:"🇰🇪",x:52,y:50,continent:"非洲"},
+  {id:"ma",name:"摩洛哥",emoji:"🇲🇦",x:41,y:34,continent:"非洲"},
+  {id:"et",name:"衣索比亞",emoji:"🇪🇹",x:52,y:46,continent:"非洲"},
+  {id:"au",name:"澳洲",emoji:"🇦🇺",x:79,y:62,continent:"大洋洲"},
+  {id:"nz",name:"紐西蘭",emoji:"🇳🇿",x:87,y:70,continent:"大洋洲"},
+];
+
+const CONTINENTS = ["全部","亞洲","歐洲","美洲","非洲","大洋洲"];
+
+let allMarkers = {};
+let myName = "";
+let myColor = COLORS[0];
+let selectedRegions = [];
+let activeContinent = "全部";
+let currentTab = "map";
+let expandedUser = null;
+
+// Listen to Firebase
+const markersRef = ref(db, "markers");
+onValue(markersRef, (snapshot) => {
+  allMarkers = snapshot.val() || {};
+  if (myName) render();
+});
+
+window.setName = function() {
+  const val = document.getElementById("name-input").value.trim();
+  if (!val) return;
+  myName = val;
+  const existingUsers = Object.keys(allMarkers);
+  if (allMarkers[myName]) {
+    myColor = allMarkers[myName].color || COLORS[0];
+    selectedRegions = allMarkers[myName].regions || [];
+  } else {
+    const idx = existingUsers.length % COLORS.length;
+    myColor = COLORS[idx];
+    selectedRegions = [];
+  }
+  document.getElementById("name-screen").style.display = "none";
+  document.getElementById("map-view").style.display = "block";
+  document.getElementById("my-dot").style.background = myColor;
+  document.getElementById("my-name-label").textContent = myName;
+  buildContinentFilter();
+  render();
+};
+
+document.getElementById("name-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") window.setName();
+});
+
+window.switchTab = function(tab) {
+  currentTab = tab;
+  document.getElementById("tab-map").classList.toggle("active", tab === "map");
+  document.getElementById("tab-list").classList.toggle("active", tab === "list");
+  document.getElementById("map-view").style.display = tab === "map" ? "block" : "none";
+  document.getElementById("list-view-wrap").style.display = tab === "list" ? "block" : "none";
+  if (tab === "list") renderList();
+};
+
+window.saveMarkers = async function() {
+  const btn = document.getElementById("save-btn");
+  await set(ref(db, "markers/" + myName), {
+    color: myColor,
+    regions: selectedRegions,
+    updatedAt: new Date().toISOString()
+  });
+  btn.textContent = "✓ 已儲存";
+  btn.classList.add("saved");
+  setTimeout(() => { btn.textContent = "儲存標記"; btn.classList.remove("saved"); }, 2000);
+};
+
+window.clearMyMarkers = async function() {
+  if (!confirm("確定要清除你的所有標記嗎？")) return;
+  selectedRegions = [];
+  await remove(ref(db, "markers/" + myName));
+  render();
+};
+
+function buildContinentFilter() {
+  const el = document.getElementById("continent-filter");
+  el.innerHTML = CONTINENTS.map(c =>
+    `<button class="cont-btn ${c === activeContinent ? 'active' : ''}" onclick="setCont('${c}')">${c}</button>`
+  ).join("");
+}
+
+window.setCont = function(c) {
+  activeContinent = c;
+  buildContinentFilter();
+  renderMapMarkers();
+  renderRegionGrid();
+};
+
+window.toggleRegion = function(id) {
+  const idx = selectedRegions.indexOf(id);
+  if (idx >= 0) selectedRegions.splice(idx, 1);
+  else selectedRegions.push(id);
+  document.getElementById("my-count").textContent = `已選 ${selectedRegions.length} 個地區`;
+  document.getElementById("save-btn").textContent = "儲存標記";
+  document.getElementById("save-btn").classList.remove("saved");
+  renderMapMarkers();
+  renderRegionGrid();
+};
+
+function getRegionUsers(regionId) {
+  return Object.entries(allMarkers)
+    .filter(([, d]) => d.regions && d.regions.includes(regionId))
+    .map(([name, d]) => ({ name, color: d.color }));
+}
+
+function render() {
+  document.getElementById("my-count").textContent = `已選 ${selectedRegions.length} 個地區`;
+  renderMapMarkers();
+  renderRegionGrid();
+  renderLegend();
+  if (currentTab === "list") renderList();
+}
+
+function renderMapMarkers() {
+  const wrap = document.getElementById("map-markers");
+  const filtered = activeContinent === "全部" ? REGIONS : REGIONS.filter(r => r.continent === activeContinent);
+  wrap.innerHTML = filtered.map(region => {
+    const users = getRegionUsers(region.id);
+    const isMine = selectedRegions.includes(region.id);
+    const size = isMine ? 28 : users.length > 0 ? 22 : 16;
+    const bg = isMine ? myColor : users.length > 0 ? users[0].color + "80" : "#2a2840";
+    const border = isMine ? myColor : users.length > 0 ? users[0].color : "#3a3860";
+    const shadow = isMine ? `0 0 12px ${myColor}60` : users.length > 0 ? `0 0 6px ${users[0].color}40` : "none";
+
+    const userDots = users.slice(0,5).map((u,i) =>
+      `<div style="position:absolute;width:8px;height:8px;border-radius:50%;background:${u.color};left:${i*5-10}px;top:-4px;border:1px solid #0f0e17;opacity:0.85"></div>`
+    ).join("");
+
+    const tooltipUsers = users.length > 0
+      ? users.map(u => `<div class="tooltip-user"><div class="tooltip-dot" style="background:${u.color}"></div>${u.name}</div>`).join("")
+      : `<div class="tooltip-empty">尚無人標記</div>`;
+
+    return `
+      <div class="map-marker" style="left:${region.x}%;top:${region.y}%" onclick="toggleRegion('${region.id}')">
+        ${userDots}
+        <div class="marker-dot" style="width:${size}px;height:${size}px;background:${bg};border-color:${border};box-shadow:${shadow}">
+          ${region.emoji}
+        </div>
+        <div class="marker-tooltip">
+          <div class="tooltip-title">${region.emoji} ${region.name}</div>
+          ${tooltipUsers}
+          <div class="tooltip-hint">點擊${isMine ? "取消" : "標記"}</div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderRegionGrid() {
+  const grid = document.getElementById("region-grid");
+  const filtered = activeContinent === "全部" ? REGIONS : REGIONS.filter(r => r.continent === activeContinent);
+  grid.innerHTML = filtered.map(region => {
+    const users = getRegionUsers(region.id);
+    const isMine = selectedRegions.includes(region.id);
+    const dots = users.slice(0,5).map(u =>
+      `<div class="region-user-dot" style="background:${u.color}"></div>`
+    ).join("") + (users.length > 5 ? `<span style="font-size:0.6rem;color:#5050a0">+${users.length-5}</span>` : "");
+    return `
+      <div class="region-card ${isMine ? 'mine' : ''}" onclick="toggleRegion('${region.id}')"
+        style="${isMine ? `border-color:${myColor}80` : ''}">
+        <span class="region-emoji">${region.emoji}</span>
+        <div>
+          <div class="region-name">${region.name}</div>
+          ${users.length > 0 ? `<div class="region-users">${dots}</div>` : ""}
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function renderLegend() {
+  const list = document.getElementById("legend-list");
+  const users = Object.entries(allMarkers);
+  if (users.length === 0) { list.innerHTML = `<span style="color:#5050a0;font-size:0.8rem">還沒有書友標記</span>`; return; }
+  list.innerHTML = users.map(([name, d]) =>
+    `<div class="legend-item">
+      <div style="width:10px;height:10px;border-radius:50%;background:${d.color}"></div>
+      <span style="color:${name===myName?'#e8d5a0':'#a0a0c0'}">${name}${name===myName?' (你)':''}</span>
+    </div>`
+  ).join("");
+}
+
+function renderList() {
+  const users = Object.entries(allMarkers);
+  document.getElementById("list-count").textContent = `共 ${users.length} 位書友已標記領域`;
+  document.getElementById("list-view").innerHTML = users.map(([name, d]) => {
+    const isExpanded = expandedUser === name;
+    const regionTags = isExpanded
+      ? (d.regions || []).map(rid => {
+          const r = REGIONS.find(r => r.id === rid);
+          return r ? `<span class="user-region-tag">${r.emoji} ${r.name}</span>` : "";
+        }).join("")
+      : "";
+    return `
+      <div class="user-card" onclick="toggleExpand('${name}')"
+        style="border-color:${name===myName?d.color+'60':'#2a2840'}">
+        <div class="user-card-header">
+          <div class="user-card-dot" style="background:${d.color}"></div>
+          <span class="user-card-name">${name}</span>
+          ${name===myName?`<span class="user-card-you" style="color:${d.color}">● 你</span>`:''}
+        </div>
+        <div class="user-card-count">標記了 ${(d.regions||[]).length} 個地區</div>
+        ${isExpanded ? `<div class="user-card-regions">${regionTags}</div>` : ""}
+      </div>`;
+  }).join("");
+}
+
+window.toggleExpand = function(name) {
+  expandedUser = expandedUser === name ? null : name;
+  renderList();
+};
+
+// Init
+document.getElementById("loading").style.display = "none";
+document.getElementById("app").style.display = "block";
+</script>
+</body>
+</html>
